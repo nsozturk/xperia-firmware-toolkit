@@ -1,0 +1,27 @@
+# xperia-firmware-toolkit
+
+> xperia-firmware-toolkit is a free, open-source Windows toolkit for pulling Sony Xperia stock firmware — from Xperia Companion or Sony's ESS distribution API — and rooting the Xperia 1 IV (XQ-CT72 / PDX223) with KernelSU Next.
+
+## What it does
+- Capture the firmware Xperia Companion downloads on Windows (partition .sin bundle).
+- Download firmware without Companion via Sony's public ESS distribution API (HTTP Range).
+- Reverse-engineering notes: Companion Java/OSGi internals, JRE-truststore MITM, SIN format.
+- Root the Xperia 1 IV: extract stock boot.img, patch with KernelSU Next, fastboot flash boot, Zygisk + PIF + TrickyStore.
+- adb data migration: contacts → vCard, SMS → restorable XML, media push, APK extraction.
+
+## Install
+```bash
+git clone https://github.com/nsozturk/xperia-firmware-toolkit
+```
+Requires Windows, Android platform-tools (adb/fastboot); PowerShell + Python.
+
+## Use
+```bash
+powershell -ExecutionPolicy Bypass -File firmware-capture/watch_firmware_win.ps1
+```
+
+## Links
+- [README](https://github.com/nsozturk/xperia-firmware-toolkit#readme)
+- [AGENTS.md](https://github.com/nsozturk/xperia-firmware-toolkit/blob/main/AGENTS.md)
+- [Documentation](https://nsozturk.github.io/xperia-firmware-toolkit/)
+- [Releases](https://github.com/nsozturk/xperia-firmware-toolkit/releases)

@@ -1,0 +1,44 @@
+# Binaries / firmware (copyright, large) — never commit
+*.img
+*.sin
+*.ftf
+*.zip
+*.apk
+*.apks
+*.xz
+*.deb
+FILE_*
+boot_*.img
+*_part[0-9]*
+
+# Personal / device data — never commit
+*contacts*.vcf
+*contacts_raw*
+*sms_*.xml
+*sms_raw*
+*calllog*
+*keybox*.xml
+pif.json
+*.pif.prop
+app_list.txt
+playstore_apps.txt
+sideload_only.txt
+*_dump/
+huawei_dump/
+session_history/
+*.jsonl
+
+# Tooling runtime junk
+venv/
+conf/
+*.mitm
+*.err
+*.out
+*.log
+__pycache__/
+zadig.exe
+platform-tools/
+
+# OS
+.DS_Store
+Thumbs.db

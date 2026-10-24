@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "xperia-firmware-toolkit"
+abstract: "A free, open-source Windows toolkit for pulling Sony Xperia stock firmware from Xperia Companion or Sony's ESS distribution API, and rooting the Xperia 1 IV with KernelSU Next."
+type: software
+authors:
+  - name: "nsozturk"
+repository-code: "https://github.com/nsozturk/xperia-firmware-toolkit"
+url: "https://nsozturk.github.io/xperia-firmware-toolkit/"
+license: MIT
+version: "1.0.0"
+date-released: "2026-10-25"
