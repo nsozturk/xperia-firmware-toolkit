@@ -50,6 +50,7 @@
 | `firmware-capture/watch_firmware_win.ps1` | Watches Companion and copies firmware parts as they land |
 | `mitm/log_urls.py`, `mitm/capture.ps1` | mitmproxy addon + transparent capture launcher |
 | `data-transfer/*.ps1` | adb migration tools (contacts, SMS, media, APKs) |
+| `tools/` | Bundled third-party root/ad-block/SSL-unpinning tools (see `tools/CREDITS.md`) |
 | `examples/*.xml` | Redacted ESS API responses |
 
 ## Quick start

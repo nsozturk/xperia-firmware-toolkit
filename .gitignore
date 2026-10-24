@@ -42,3 +42,9 @@ platform-tools/
 # OS
 .DS_Store
 Thumbs.db
+
+# Bundled third-party tools are intentionally tracked (see tools/CREDITS.md)
+!tools/
+!tools/**/*.apk
+!tools/**/*.zip
+!tools/**/*.js
