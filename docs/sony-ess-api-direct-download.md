@@ -1,54 +1,50 @@
-# Sony ESS Distribution API — Companion'sız Doğrudan Firmware İndirme
+# Sony ESS Distribution API — direct, Companion-less firmware download
 
-Tarih: 2026-10-21
-Keşif: Xperia Companion'ın `localstorage\US\services.json`'undaki oturum
-token'ları ile Sony'nin **public** dağıtım API'si doğrudan sorgulanabiliyor.
-MITM / SSL pinning kırma / sürücü / Companion GEREKMİYOR. Kanıtlandı (HTTP 200/206).
+The session tokens in Xperia Companion's `localstorage\<REGION>\services.json` let
+you query Sony's **public** ESS distribution API directly. No MITM, no SSL-pinning
+bypass, no Companion. Verified end-to-end (HTTP 200/206).
 
-## Zincir (3 adım)
+## The chain (3 steps)
 
-### 1) software-service — bir versiyonun dosya listesi
+### 1) software-service — the file list for one build
 ```
-GET https://app.swup.update.sony.net/ess-distribution/public/api/device-service/software-service/gen2/<metaServiceId>?MiscPackageId=<id>&password=<tok>&MiscPassword=<tok>&AndroidVersionUpdateType=TARGET&CeParam=<tok>
+GET https://app.swup.update.sony.net/ess-distribution/public/api/device-service/software-service/gen2/<metaServiceId>?MiscPackageId=…&password=…&MiscPassword=…&AndroidVersionUpdateType=TARGET&CeParam=…
 ```
-Dönen XML: model (XQ-CT72 / PDX-223), software-version (64.2.A.2.265),
-android-version, customization, anti-rollback sayaçları ve her dosya için
-`file-resource` (content-id + `file-chunk-info` linki).
+Returns XML: model (e.g. XQ-CT72 / PDX-223), software version, Android version,
+customization, anti-rollback counters, and a `file-resource` per file
+(content-id + a `file-chunk-info` link).
 
-### 2) file-chunk-info — dosyanın parça (chunk) listesi
+### 2) file-chunk-info — the chunk list for one file
 ```
-GET .../ess-distribution/public/api/file/<contentId>?password=<fileTok>
+GET …/ess-distribution/public/api/file/<contentId>?password=<fileToken>
 ```
-Dönen XML: `file-chunk number=N` + her biri için `download` linki.
+Returns XML: a `file-chunk number=N` per chunk, each with a `download` link.
 
-### 3) filestorage — doğrudan CDN indirme (Range destekli)
+### 3) filestorage — the direct CDN download (Range-capable)
 ```
 GET https://app.swup.update.sony.net/filestorage/<contentId>/<hash>_part<N>
 ```
-- `application/octet-stream`, her parça 104857600 B (son parça kısmi).
-- **HTTP 206 + Accept-Ranges** → Range ile parça parça / paralel indirilebilir.
-- part0..partN birleştir = orijinal dosya (ör. APP-SW ...zip = firmware FTF).
+- `application/octet-stream`, each chunk 104857600 bytes (last chunk partial).
+- **HTTP 206 + Accept-Ranges** → fetch chunks in parallel / resume with Range.
+- Concatenate `part0..partN` to reassemble the original file (e.g. the APP-SW firmware ZIP).
 
-## Bu versiyonun somut değerleri (XQ-CT72 / 64.2.A.2.265 / A14)
-- metaServiceId: `<REDACTED_ID>-COMMERCIAL_SUCE_GEN2`
-- ProductObjectId: `<REDACTED_UUID>` (PDX-223)
-- ModelObjectId: `<REDACTED_UUID>` (XQ-CT72)
-- CustomizationId: `24616010`, DomainId: `170`, HwSetupKey: `Default`
-- content 21034045 (APP_SW, 4032872824 B, 39 chunk) — ana firmware
-- content 21018365 (E_LABEL), 21015445 (CUSTOMER_ID)
-- Manifest + chunk XML kaydı: `xperia1_iv_root/ess_api/`
+Redacted example responses are in [`examples/`](../examples/):
+`software-service.example.xml` and `file-chunk-info.example.xml`.
 
-## Token'ların doğası (önemli)
-`password`, `MiscPassword`, `CeParam` ve per-file `password` değerleri bir
-**cihaz handshake oturumundan** geliyor (software-service çağrısından önce
-device-service login/handshake yapılıyor). Yakaladığımız token'lar bu oturuma
-ait ve çalışıyor; süresi dolabilir. BAŞKA versiyonları/modelleri enumerate
-etmek için handshake'i tekrarlamak gerekir → bunu **XperiFirm** hazır yapıyor
-(Sony GCS/ESS protokolünü implemente etmiş, model başına tüm sürümleri listeler).
+## On the tokens
 
-## "Tüm versiyonları indirip yayınlama" için pratik yol
-1. Enumerasyon: XperiFirm (veya device-service handshake'ini biz implemente).
-2. İndirme: yukarıdaki filestorage chunk URL'leri, Range ile paralel.
-3. Not: Firmware **Sony'nin telifli/özel yazılımı** — public yeniden dağıtım
-   (GitHub) DMCA/ToS riski taşır; parça boyutu da GitHub asset sınırını aşıyor.
-   Ayrıntı için ayrı değerlendirme.
+`password`, `MiscPassword`, `CeParam` and each per-file `password` come from a
+**device handshake session** (performed before `software-service`). The tokens
+captured in a real session work but can expire. To enumerate **other** builds/models
+you must repeat the handshake — which is exactly what **XperiFirm** already
+implements (it speaks Sony's GCS/ESS protocol and lists every available version per
+model).
+
+## "Download all versions" — the practical picture
+
+- **Enumeration:** use XperiFirm (or implement the device-service handshake yourself).
+- **Download:** the `filestorage` chunk URLs above, in parallel, with Range.
+- **Reality:** Sony keeps only the **latest** firmware per customization online; older
+  builds are removed from Sony's servers (only community archives keep history).
+- **Redistribution note:** Sony firmware is proprietary/copyrighted — don't re-host it
+  publicly.

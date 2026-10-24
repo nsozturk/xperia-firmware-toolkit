@@ -1,150 +1,136 @@
-# Xperia 1 IV (XQ-CT72 / PDX223) Root Kılavuzu — Android 14
+# Rooting the Xperia 1 IV (XQ-CT72 / PDX223) — Android 14
 
-Sony Xperia 1 IV'ü sıfırdan rootlamak için eksiksiz kaynak + rehber.
-En zor kısım (Sony firmware'ini çekmek) dahil, baştan sona.
+Complete walkthrough to root a Sony Xperia 1 IV from scratch, including the hard
+part (getting Sony firmware), start to finish.
 
-> **Cihaz:** XQ-CT72 (SEA/çift SIM) · **Platform:** PDX223 · **SoC:** SM8450 (SD 8 Gen 1)
-> **Android:** 14 · **Build (örnek):** 64.2.A.2.265 · **Kernel:** GKI 2.0 (5.10)
-
----
-
-## ⚠️ Önce oku
-
-- **Bootloader açmak cihazı TAMAMEN siler** (factory reset) ve Sony'de **DRM
-  anahtarlarını kalıcı iptal eder** (bazı kamera/ekran özellikleri etkilenebilir).
-- Yanlış `boot.img` flash'lamak **bootloop** yapar — bu repo'daki boot.img
-  **64.2.A.2.265 sürümüne** aittir. Cihazındaki sürüm farklıysa **kendi
-  sürümünün** boot.img'ini kullan (bkz. Bölüm 1).
-- Her şey **kendi cihazın / güvenlik araştırman** içindir.
+> **Device:** XQ-CT72 (SEA / dual-SIM) · **Platform:** PDX223 · **SoC:** SM8450 (SD 8 Gen 1)
+> **Android:** 14 · **Example build:** 64.2.A.2.265 · **Kernel:** GKI 2.0 (5.10)
 
 ---
 
-## Gerekenler (bu kit'te hazır)
+## ⚠️ Read first
 
-| Klasör | İçerik |
-|---|---|
-| `00_boot_stock/` | Stok `boot_64.2.A.2.265.img` (yamalanacak) |
-| `01_kernelsu_next/` | **KernelSU Next** APK (asıl yöntem) |
-| `02_magisk/` | **Magisk** APK (alternatif) |
-| `03_apatch/` | APatch APK (alternatif) |
-| `10_modules/` | ZygiskNext, Shamiko, TrickyStore, PlayIntegrityFork |
-| `20_platform-tools/` | adb + fastboot (Windows) |
+- **Unlocking the bootloader wipes the device completely** (factory reset) and
+  **permanently revokes Sony DRM keys** (some camera/display features may change).
+- Flashing the wrong `boot.img` causes a **bootloop** — the boot image must match
+  your **exact firmware build**. If your build differs, extract the boot image from
+  **your** firmware (see Part 1).
+- Everything here is for **your own device / security research**.
 
-Ayrıca: Sony **bootloader unlock kodu** (IMEI ile Sony'den alınır — aşağıda).
+## What you need
 
----
+The tools used below are bundled under [`tools/`](../tools/) with upstream credits
+in [`tools/CREDITS.md`](../tools/CREDITS.md):
 
-## Bölüm 0 — Stok firmware'i çekmek (asıl zor kısım)
+| Tool | Purpose |
+|------|---------|
+| `tools/root/KernelSU_Next-*.apk` | **Primary** root method |
+| `tools/root/Magisk-*.apk` | Alternative |
+| `tools/root/APatch-*.apk` | Alternative |
+| `tools/root/ZygiskNext-*.zip`, `Shamiko-*.zip`, `TrickyStoreOSS-*.zip`, `PlayIntegrityFork-*.zip` | Zygisk + Play Integrity chain |
 
-Sony firmware'i halka açık yayınlamaz. İki yol:
-
-### Yol A — Xperia Companion'dan yakalama (Windows)
-1. Xperia Companion kur, **bootloader KİLİTLİYKEN** (Companion açık BL'de çalışmaz).
-2. Firmware indirme sırasında şuraya düşer:
-   `%LOCALAPPDATA%\Sony\Xperia Companion\<tarih>\localstorage\<BÖLGE>\`
-   Önce `FILE_<id>_partN` (100 MB parçalar), sonra birleşip `FILE_<id>` (ZIP) olur.
-3. "Repairing device" başlar başlamaz o klasörü kopyala (flash sonrası silinebilir):
-   `robocopy "<...localstorage\US>" <hedef> /E /MT:16`
-4. `services.json` → hangi `FILE_<id>` hangi sürüm, eşlemesi burada.
-
-### Yol B — Sony ESS API'den doğrudan (Companion'sız)
-`services.json`'daki oturum token'larıyla public API doğrudan çalışır:
-```
-software-service → /api/file/<contentId>?password=<tok> → /filestorage/<id>/<hash>_partN
-```
-`/filestorage/...` parçaları **Range destekli**, doğrudan indirilir (bkz.
-`research/2026-10-21_sony-ess-distribution-api-direct-download.md`).
+Plus: Android platform-tools (`adb`/`fastboot`), a Sony **bootloader unlock code**
+(from Sony Open Devices, tied to your IMEI), and a stock `boot.img` for your build.
 
 ---
 
-## Bölüm 1 — Stok boot.img çıkarma (.sin → .img)
+## Part 0 — Get the stock firmware
 
-Firmware ZIP'inde `boot_X-FLASH-ALL-XXXX.sin` var (Sony SIN formatı, ham değil).
-SIN header'ı `ANDROID!` magic'ine kadar (bu sürümde **3584 bayt**) soyulur:
+Sony does not publish firmware directly. Two routes:
 
-```bash
-# PowerShell / herhangi bir dille: ilk 3584 baytı at, gerisi boot.img
-# (offset, .sin içinde 'ANDROID!' magic'inin konumu — sürüme göre değişebilir)
-```
-Doğrulama: çıkan dosya `ANDROID!` ile başlamalı, header_version = 4 olmalı.
-Bu kit'teki `00_boot_stock/boot_64.2.A.2.265.img` hazır çıkarılmış hâlidir.
+- **Capture from Xperia Companion** — run a "Software repair"; the firmware lands in
+  `%LOCALAPPDATA%\Sony\Xperia Companion\<InstallTime>\localstorage\<REGION>\` as
+  `FILE_<contentId>` (a ZIP of all partition `.sin` files). See
+  [xperia-companion-firmware-capture.md](xperia-companion-firmware-capture.md) and
+  the watcher `firmware-capture/watch_firmware_win.ps1`.
+- **Sony ESS API** — download it without Companion. See
+  [sony-ess-api-direct-download.md](sony-ess-api-direct-download.md).
 
 ---
 
-## Bölüm 2 — Bootloader açma (CİHAZI SİLER)
+## Part 1 — Extract the stock boot.img (.sin → .img)
 
-1. `developer.sony.com/open-devices/unlock-bootloader` → IMEI gir → unlock kodu al.
-   (IMEI: `*#06#`)
-2. Cihazı kapat → **Volume UP basılı tutup USB tak** → **mavi LED** = fastboot.
-3. ```bash
+The firmware ZIP contains `boot_X-FLASH-ALL-XXXX.sin` (Sony SIN format, not a raw
+image). Strip the SIN header up to the `ANDROID!` magic (3584 bytes on the analysed
+build); the remainder is a valid boot image. Verify: it must start with `ANDROID!`
+and report `header_version 4`.
+
+---
+
+## Part 2 — Unlock the bootloader (WIPES THE DEVICE)
+
+1. Get your code at `developer.sony.com/open-devices/unlock-bootloader` (enter IMEI,
+   `*#06#`).
+2. Power off → hold **Volume Up** and plug in USB → **blue LED** = fastboot mode.
+3. On Windows the Sony fastboot interface needs a **WinUSB driver** — install it with
+   [Zadig](https://zadig.akeo.ie) (List All Devices → select the `0FCE 0DDE` device →
+   WinUSB → Replace Driver).
+4. ```bash
    fastboot devices
-   fastboot oem unlock 0x<UNLOCK_KODU>
+   fastboot oem unlock 0x<YOUR_UNLOCK_CODE>
    ```
-4. Cihaz silinir ve yeniden başlar. Kurulumu geç, **Geliştirici Seçenekleri →
-   USB hata ayıklama** ve **OEM unlock** açık kalsın.
+5. The device wipes and reboots. Finish setup, then re-enable **USB debugging** and
+   keep **OEM unlocking** on.
 
 ---
 
-## Bölüm 3A — Root: KernelSU Next (ASIL yöntem, Magisk'siz)
+## Part 3A — Root with KernelSU Next (primary)
 
-GKI cihaz olduğu için **LKM modu** (uygulama stok boot.img'i yamalar):
+GKI device → **LKM mode** (the app patches the stock boot image):
 
-1. `01_kernelsu_next/KernelSU_Next-*.apk`'yi telefona at, kur.
-2. `00_boot_stock/boot_64.2.A.2.265.img`'i telefona kopyala.
-3. KernelSU Next uygulaması → **Install → Select and Patch a File** → stok
-   boot.img'i seç → çıktı: `kernelsu_next_patched_*.img` (Download'a düşer).
-4. Patched img'i PC'ye al, fastboot moduna geç:
-   ```bash
+1. Install `tools/root/KernelSU_Next-*.apk`.
+2. Copy your stock `boot.img` to the phone.
+3. KernelSU Next app → **Install → Select and Patch a File** → pick the boot image →
+   output: `kernelsu_next_patched_*.img` (in Download).
+4. ```bash
    fastboot flash boot kernelsu_next_patched.img
    fastboot reboot
    ```
-5. Açılışta KernelSU Next uygulaması "Çalışıyor / <sürüm>" göstermeli.
-6. Modül desteği için **ZygiskNext** gerekir (Bölüm 4).
+   > If `fastboot flash boot` fails with "Volume Full", the image is 1 KB larger than
+   > the partition — trim trailing zero padding to the exact partition size and reflash.
+5. The KernelSU Next app should show **Working / <version>**.
+
+## Part 3B — Root with Magisk (alternative)
+
+1. Install `tools/root/Magisk-*.apk`.
+2. Magisk → **Install → Select and Patch a File** → stock `boot.img` → `magisk_patched_*.img`.
+3. `fastboot flash boot magisk_patched.img && fastboot reboot`.
+4. Enable **Zygisk** and **Enforce DenyList** (or use Shamiko).
 
 ---
 
-## Bölüm 3B — Root: Magisk (alternatif)
+## Part 4 — Zygisk + Play Integrity chain
 
-1. `02_magisk/Magisk-*.apk`'yi kur.
-2. Stok `boot.img`'i telefona kopyala.
-3. Magisk → **Install → Select and Patch a File** → boot.img → `magisk_patched_*.img`.
-4. ```bash
-   fastboot flash boot magisk_patched.img
-   fastboot reboot
-   ```
-5. Magisk'te **Zygisk = Açık**, **Enforce DenyList** (veya Shamiko).
+After root (Magisk's built-in Zygisk, or ZygiskNext on KernelSU/APatch):
 
----
-
-## Bölüm 4 — Zygisk + Play Integrity zinciri
-
-Root sonrası (Magisk Settings veya KernelSU/APatch'te ZygiskNext üzerinden):
-
-1. **Zygisk aç** — Magisk: dahili; KernelSU Next / APatch: `10_modules/ZygiskNext-*.zip` kur.
-2. **Shamiko** (`10_modules/Shamiko-*.zip`) — root gizleme (Magisk DenyList'i
-   "whitelist" moduna al, Shamiko'yu kur).
-3. **TrickyStore** (`10_modules/TrickyStoreOSS-*.zip`) — keybox ile STRONG/DEVICE
-   integrity. `keybox.xml`'i `/data/adb/tricky_store/`'a koy, `target.txt` ayarla.
-4. **PlayIntegrityFork** (`10_modules/PlayIntegrityFork-*.zip`) — cihaz fingerprint
-   spoof. Gerekirse güncel `pif.json` koy.
-5. GMS/Play Store verisini temizle, cihazı yeniden başlat, Play Integrity test et.
+1. **Enable Zygisk** — Magisk: built-in; KernelSU Next / APatch: install
+   `tools/root/ZygiskNext-*.zip`.
+2. **Shamiko** (`tools/root/Shamiko-*.zip`) — root hiding (set DenyList to whitelist mode).
+   Note: Shamiko is incompatible with some KernelSU Next versions; KernelSU Next's own
+   "umount modules" hiding can be used instead.
+3. **TrickyStore** (`tools/root/TrickyStoreOSS-*.zip`) — keystore attestation. Put a
+   valid `keybox.xml` in `/data/adb/tricky_store/` and set `target.txt`.
+4. **PlayIntegrityFork** (`tools/root/PlayIntegrityFork-*.zip`) — device fingerprint.
+   Run its action (`autopif`) online for a fresh fingerprint.
+5. Clear Google Play Services / Play Store data, reboot, and test Play Integrity.
 
 ---
 
-## Hızlı komutlar
+## Quick reference
 
 ```bash
-adb devices                       # cihaz açık + debug
-adb reboot bootloader             # fastboot'a geç (ya da Vol+ ile USB)
+adb devices                       # device connected + debugging
+adb reboot bootloader             # enter fastboot (or Vol-Up + USB)
 fastboot devices
-fastboot getvar unlocked          # bootloader açık mı
+fastboot getvar unlocked          # is the bootloader unlocked
 fastboot flash boot <patched>.img
 fastboot reboot
 ```
 
-## Sorun giderme
-- **Bootloop:** yanlış/uyumsuz boot.img. Stok `boot.img`'i geri flash'la, sürümü doğrula.
-- **Companion "driver missing":** Companion'ı **yönetici** çalıştır; SOMC Flash
-  sürücüsü bozulduysa `C:\Program Files\Sony\SWUP-drivers\DriverInstaller64.exe` (admin).
-- **fastboot cihazı görmüyor:** Google USB driver / Sony SWUP driver; farklı USB portu.
-```
+## Troubleshooting
+- **Bootloop:** wrong/mismatched boot.img — reflash the stock boot and verify the build.
+- **Companion "driver missing":** run Companion as admin; if the SOMC flash driver is
+  broken, reinstall it with `Program Files\Sony\SWUP-drivers\DriverInstaller64.exe`.
+- **`fastboot` sees no device:** install the WinUSB driver with Zadig; try another USB port.
+- **Re-locking:** NEVER `fastboot oem lock` while rooted/modified — it bricks. Restore
+  100% stock first (stock boot + a full Companion repair), verify it boots, then lock.
